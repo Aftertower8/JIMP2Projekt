@@ -1,5 +1,10 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "pob_dane.h"
 
-  for (int j = 2; j < argc; j++) { //wczytywanie z flagami
+int pobierz_dane(int argc, char** argv, char a[], FILE** out){
+for (int j = 2; j < argc; j++) { //wczytywanie z flagami
     if (strcmp(argv[j], "-v") == 0) { //tryb verbose
         verbose(); //<-do zrobienia
     }
@@ -32,3 +37,5 @@
         return 1;
     }
   }
+  return 0;
+}
