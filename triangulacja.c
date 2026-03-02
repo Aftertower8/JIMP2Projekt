@@ -43,3 +43,5 @@ void oblicz(graf* g, int a, int b, int c, int ac, int bc){ //obliczenie punktow 
     g->punkty[c].op_y = y1f;
   }
 }
+
+//trzeba dodac funkcje iterujaca po punktach funkcją oblicz i w razie potrzeby backtrackujaca sie jesli punkty zaczynaja nachodzic na siebie
