@@ -15,7 +15,8 @@ int main(int argc, char** argv)
   char a[50] = "triangulacja"; //Bazowo bez podania flagi argumentu bedzie triangulacja
   FILE* out = NULL;
   if (pobierz_dane(argc, argv, a, &out) != 0) {
-        return 1;
+        help();
+        return 2;
   }
 
   //wlaczanie funkcji posrednich

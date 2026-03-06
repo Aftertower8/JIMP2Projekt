@@ -3,18 +3,32 @@
 #include <string.h>
 #include "pob_dane.h"
 
+void help(){
+  printf("Uruchomienie programu: ./graf <plik_wejściowy> [flagi]");
+  printf("Flagi:\n-h - wyświetla menu pomocy opisujące działanie programu\n-v - uruchamia tryb verbose\n");
+  printf("-a <nazwa_algorytmu> - zmienia algorytm; nazwa: triangulacja lub verbose, domyslnie triangulacja\n");
+  printf("-w <plik_wyjsciowy> - zapisuje wynik do podanego pliku");
+}
+
 int pobierz_dane(int argc, char** argv, char a[], FILE** out){
 for (int j = 2; j < argc; j++) { //wczytywanie z flagami
+  if (strcmp(argv[j], "-w") != 0 &&
+        strcmp(argv[j], "-a") != 0 &&
+        strcmp(argv[j], "-h") != 0 &&
+        strcmp(argv[j], "-v") != 0) {
+        fprintf(stderr,"Nieznana flaga: %s\n", argv[j]);
+        return 1;
+    }
     if (strcmp(argv[j], "-v") == 0) { //tryb verbose
-        verbose(); //<-do zrobienia
+        verbose_activate();
     }
     if (strcmp(argv[j], "-h") == 0) { //tryb help
-        help(); //<-do zrobienia
+        return 1;
     }
     if (strcmp(argv[j], "-a") == 0) { //zmiana na inny algorytm
         j++;
         if (j < argc)
-            if(sscanf(argv[j], "%49s", a) != 1) {
+            if(sscanf(argv[j], "%49s", a) != 1) { //spectral
               fprintf(stderr,"Bledny argument dla -a\n");
               return 1;
             }
@@ -28,13 +42,6 @@ for (int j = 2; j < argc; j++) { //wczytywanie z flagami
             return 1;
           }
         }
-    }
-    if (strcmp(argv[j], "-w") != 0 &&
-        strcmp(argv[j], "-a") != 0 &&
-        strcmp(argv[j], "-h") != 0 &&
-        strcmp(argv[j], "-v") != 0) {
-        fprintf(stderr,"Nieznana flaga: %s\n", argv[j]);
-        return 1;
     }
   }
   return 0;
