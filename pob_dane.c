@@ -2,12 +2,21 @@
 #include <stdlib.h>
 #include <string.h>
 #include "pob_dane.h"
+#define l_algorytmow 2
+char *algorytm[]={"spectral","triangulacja"};
 
 void help(){
   printf("Uruchomienie programu: ./graf <plik_wejściowy> [flagi]");
   printf("Flagi:\n-h - wyświetla menu pomocy opisujące działanie programu\n-v - uruchamia tryb verbose\n");
-  printf("-a <nazwa_algorytmu> - zmienia algorytm; nazwa: triangulacja lub verbose, domyslnie triangulacja\n");
+  printf("-a <nazwa_algorytmu> - zmienia algorytm; algorytmy: triangulacja/verbose, domyslnie triangulacja\n");
   printf("-w <plik_wyjsciowy> - zapisuje wynik do podanego pliku");
+}
+
+int znajdz_algorytm(char *a){
+  for(int i=0; i<l_algorytmow; i++)
+    if(strcmp(a,algorytm[i])==0)
+      return 0;
+    return 1;
 }
 
 int pobierz_dane(int argc, char** argv, char a[], FILE** out){
@@ -32,13 +41,18 @@ for (int j = 2; j < argc; j++) { //wczytywanie z flagami
               fprintf(stderr,"Bledny argument dla -a\n");
               return 1;
             }
+            if(znajdz_algorytm(a)!=0){
+              fprintf(stderr,"Niepoprawna nazwa algorytmu: -a %s\n", a);
+              return 1;
+            }
+            
     }
     if (strcmp(argv[j], "-w") == 0) { //otworzenie pliku z wynikiem
         j++;
         if (j < argc){
             out = fopen(argv[j], "a");
           if (!out) {
-            fprintf(stderr, "Nie mozna otworzyc pliku");
+            fprintf(stderr, "Nie mozna otworzyc pliku wejsciowego");
             return 1;
           }
         }
