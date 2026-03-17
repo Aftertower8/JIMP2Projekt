@@ -10,7 +10,7 @@ int get_max_vertex(graf g){
 
 int** create_adjacency_matrix(graf g){
     int vertex_max = get_max_vertex(g);
-    int **adj_matrix = (int**)malloc(sizeof(int*)*vertex_max);
+    int **adj_matrix = (int**)malloc(sizeof(int*)*(vertex_max+1));
     if(!adj_matrix)
         return NULL;
     for(int i=0;i<vertex_max;i++){
@@ -26,8 +26,8 @@ int** create_adjacency_matrix(graf g){
         }
     }
     for(int i=0; i<vertex_max; i++){
-        int a=g.linki->a;
-        int b=g.linki->b;
+        int a=g.linki[i].a;
+        int b=g.linki[b].b;
         adj_matrix[a][b]=1;
         adj_matrix[b][a]=1;
     }
@@ -66,7 +66,7 @@ int** create_laplacian_matrix(int** adj_matrix, int* deg_matrix, int max){
     for(int i=0;i<max;i++){
         for(int j=0;j<max;j++){
             if(i==j)
-                adj_matrix += deg_matrix[i];
+                adj_matrix[i][j] += deg_matrix[i];
             if(adj_matrix[i][j]==1)
                 adj_matrix[i][j] = -1;
         }
