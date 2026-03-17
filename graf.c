@@ -100,7 +100,6 @@ int add_link(graf* g, const char* name, int a, int b, double waga) {
     }
 
     g->linki = l;
-
     g->linki[g->l_l] = (link){ .a = a, .b = b, .waga = waga };
     strncpy(g->linki[g->l_l].name, name, 49);
     g->linki[g->l_l].name[49] = '\0';
