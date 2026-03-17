@@ -1,93 +1,124 @@
-#include "graf.h"
-#include <stdio.h>
-#include <stdlib.h>
+#include "graf.h" 
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <string.h> 
 
-pkt* create_pkt (double x, double op_x, double y, double op_y, int n){
-    pkt* p = (pkt*)malloc(sizeof(pkt));
+#define BUFSIZE 8192 
 
-    if( p = NULL){
-        p->x = (double)malloc(sizeof(double));
-        p->op_x = (double)malloc(sizeof(double));
-        p->y = (double)malloc(sizeof(double));
-        p->op_y = (double)malloc(sizeof(double));
-        p->n = (int)malloc(sizeof(int));
+graf* create_graf (){ 
+
+    graf* g = (graf*)malloc(sizeof(graf)); 
+
+    if(!g){ 
+        fprintf(stderr, "Blad alokacji pamieci dla grafu.\n"); 
+        return NULL; 
     }
 
-    if( !p || !p->x || !p->op_x || !p->y || !p->op_y || !p->n){
-        free(p->x);
-        free(p->op_x);
-        free(p->y);
-        free(p->op_y);
-        free(p->n);
-        free(p);
+    g->punkty = NULL; 
+    g->linki = NULL; 
+    g->l_pkt = 0; 
+    g->l_l = 0; 
+    
+    return g; 
+} 
+
+void free_graf(graf* g) { 
+    if (!g) return; 
+    free(g->punkty); 
+    free(g->linki); 
+    free(g); 
+} 
+
+graf* load_graf(char* argv){ 
+    FILE* in = fopen(argv, "r"); 
+    if(in == NULL){ 
+        fprintf(stderr, "Blad otwarcia pliku.\n"); 
+        return NULL; 
+
     }
+    graf* g = create_graf();
+    if (!g) { 
+        fprintf(stderr, "Blad tworzenia grafu.\n"); 
+        fclose(in);
+        return NULL; 
+    }
+
+    char buf[BUFSIZE]; 
+    
+    while(fgets(buf, BUFSIZE, in)){ 
+        
+        int a, b; 
+        char name[50]; 
+        double waga; 
+
+        if(sscanf(buf, "%49s %d %d %lf", name, &a, &b, &waga) != 4){ 
+            fprintf(stderr, "Blad odczytu linii pliku.\n"); 
+            free_graf(g);
+            fclose(in);
+            return NULL; 
+        } 
+
+        if(find_pkt(g, a) == -1)
+            if(add_pkt(g, a) == -1) {
+                fprintf(stderr, "Blad dodawania punktu.\n");
+                free_graf(g);
+                fclose(in);
+                return NULL;
+            }
+        if(find_pkt(g, b) == -1)
+            if(add_pkt(g, b) == -1) {
+                fprintf(stderr, "Blad dodawania punktu.\n");
+                free_graf(g);
+                fclose(in);
+                return NULL;
+            }
+        if(add_link(g, name, a, b, waga) == -1) {
+            fprintf(stderr, "Blad dodawania linku.\n");
+            free_graf(g);
+            fclose(in);
+            return NULL;
+        }
+    } 
+    fclose(in);
+    return g; 
+} 
+
+int find_pkt(graf* g, int n) { 
+    if(!g) return -1;
+    for (int i = 0; i < g->l_pkt; i++)
+        if (g->punkty[i].n == n)
+            return i; 
+    return -1;
+} 
+
+int add_link(graf* g, const char* name, int a, int b, double waga) {
+    if(!g) return -1;
+    link* l = realloc(g->linki, (g->l_l + 1) * sizeof(link));
+    if (!l) {
+        fprintf(stderr, "Blad alokacji linki\n");
+        return -1;
+    }
+
+    g->linki = l;
+
+    g->linki[g->l_l] = (link){ .a = a, .b = b, .waga = waga };
+    strncpy(g->linki[g->l_l].name, name, 49);
+    g->linki[g->l_l].name[49] = '\0';
+
+    g->l_l++;
+    return 0;
 }
 
-graf* create_graf (pkt* p, int pl, link* l, int ll){
-    graf* g = (graf*)malloc(sizeof(graf));
-
-    if( g = NULL){
-        fprintf(stderr, "Blad alokacji pamieci dla roju.\n");
-        g->l_pkt = (int)malloc(sizeof(int));
-        g->l_l = (int)malloc(sizeof(int));
+int add_pkt(graf* g, int n) {
+    if(!g) return -1;
+    pkt* p = realloc(g->punkty, (g->l_pkt + 1) * sizeof(pkt));
+    if (!p) {
+        fprintf(stderr, "Blad alokacji punktu\n");
+        return -1;
     }
 
-    if(!g->linki || !g->l_l){
-        free(g->linki);
-        free(g->l_l);
-        free(g);
-        return NULL;
-    }
-}
-
-void create_graf(graf* g) {
-    if (!g) return;
-    int i = 0;
-    while(g != NULL) {
-        free_pkt(g, i);
-        free_link(g, i);
-        i++;
-    }
-    free(g->l_l);
-    free(g->l_pkt);
-    free(g);
-}
-
-void free_link(graf* g, int i){
-        free(g->linki[i]->a);
-        free(g->linki[i]->b);
-        free(g->linki[i]->name);
-        free(g->linki[i]->waga);
-        free(g->linki[i]);
-}
-
-void free_pkt(graf* g, int i){
-    free(g->pkt[i]->x);
-    free(g->pkt[i]->op_x);
-    free(g->pkt[i]->y);
-    free(g->pkt[i]->op_y);
-    free(g->pkt[i]->n);
-    free(g->pkt[i]);
-}
-
-link* create_link (int a, int b, char name, double waga){
-    link* l = (link*)malloc(sizeof(link));
-
-    if( l = NULL){
-        l-> = (double)malloc(sizeof(double));
-        l->op_x = (double)malloc(sizeof(double));
-        l->y = (double)malloc(sizeof(double));
-        l->op_y = (double)malloc(sizeof(double));
-        l-> = (int)malloc(sizeof(int));
-    }
-
-    if( !p || !p->x || !p->op_x || !p->y || !p->op_y || !p->n){
-        free(p->x);
-        free(p->op_x);
-        free(p->y);
-        free(p->op_y);
-        free(p->n);
-        free(p);
-    }
-
+    g->punkty = p;
+    g->punkty[g->l_pkt] = (pkt){0, 0, 0, 0, n}; 
+    g->l_pkt++; 
+    return 0;
 }
