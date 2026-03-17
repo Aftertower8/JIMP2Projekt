@@ -21,8 +21,6 @@ typedef struct link {
     double waga; 
 } link;  
 
- 
-
 typedef struct graf {  
     pkt* punkty;  
     int l_pkt; 
