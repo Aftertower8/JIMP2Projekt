@@ -1,6 +1,9 @@
 #include "matrix_operations.h"
 #include <stdlib.h>
-#define max(a,b) (((a)>(b)) ? (a) : (b))
+#define max(a,b) (((a)>(b)) ? (a) : (b))\
+
+const double eps = 1e-6;
+
 int get_max_vertex(graf g){
     int max_vert = -1;
     for(int i=0; i<g.l_pkt; i++)
@@ -8,34 +11,50 @@ int get_max_vertex(graf g){
     return max_vert;
 }
 
-int** create_adjacency_matrix(graf g){
-    int vertex_max = get_max_vertex(g);
-    int **adj_matrix = (int**)malloc(sizeof(int*)*(vertex_max+1));
+void error_alocating(double **matrix, int i){
+    for(int j=0;j<i;j++){
+        free(matrix[j]);
+    }
+    free(matrix);
+}
+
+void matrix_cpy(double **dest, double **source, int size){
+    for(int i=0;i<size; i++){
+        dest[i] = (double*)malloc(sizeof(double) * (size));
+        if(!dest[i]){
+            error_alocating(dest,i);
+            dest=NULL;
+            return;
+        }
+        for(int j=0;j<size;j++)
+            dest[i][j] = source[i][j];
+    }
+}
+
+double** create_adjacency_matrix(graf g){
+    int size = get_max_vertex(g)+1;
+    int **adj_matrix = (int**)malloc(sizeof(int*)*size);
     if(!adj_matrix)
         return NULL;
-    for(int i=0;i<vertex_max;i++){
-        adj_matrix[i] = (int*)calloc(vertex_max, sizeof(int));
+    for(int i=0;i<size;i++){
+        adj_matrix[i] = (int*)calloc(size, sizeof(int));
         if(!adj_matrix[i]){
-            for(int j=0;j<i;j++){
-                free(adj_matrix[j]);
-                adj_matrix[j]=NULL;
-            }
-            free(adj_matrix);
+            error_alocating(adj_matrix,i);
             adj_matrix=NULL;
             return NULL;
         }
     }
-    for(int i=0; i<vertex_max; i++){
+    for(int i=0; i<size; i++){
         int a=g.linki[i].a;
         int b=g.linki[b].b;
-        adj_matrix[a][b]=1;
-        adj_matrix[b][a]=1;
+        adj_matrix[a][b]=1.0;
+        adj_matrix[b][a]=1.0;
     }
     return adj_matrix;
 }
 
-void free_adjacency_matrix(int **matrix, int max){
-    for(int i=0;i<max;i++){
+void free_matrix(double **matrix, int size){
+    for(int i=0;i<size;i++){
         free(matrix[i]);
         matrix[i]=NULL;
     }
@@ -43,12 +62,12 @@ void free_adjacency_matrix(int **matrix, int max){
     matrix=NULL;
 }
 
-int* create_degree_vector(int** adj_matrix, int max){
-    int *degree_vector = (int*)calloc(max, sizeof(int));
+int* create_degree_vector(double** adj_matrix, int size){
+    int *degree_vector = (int*)calloc(size, sizeof(int));
     if(!degree_vector)
         return NULL;
-    for(int i=0;i<max;i++){
-        for(int j=0;j<max;j++){
+    for(int i=0;i<size;i++){
+        for(int j=0;j<size;j++){
             if(adj_matrix[i][j]==1)
                 degree_vector[i]++;
         }
@@ -61,15 +80,23 @@ void free_degree_vector(int *vec){
     vec=NULL;
 }
 
-int** create_laplacian_matrix(int** adj_matrix, int* deg_matrix, int max){
+double** adjacency_to_laplacian_matrix(double** adj_matrix, int* deg_matrix, int size){    //no new matrix in order to save memory and time
 
-    for(int i=0;i<max;i++){
-        for(int j=0;j<max;j++){
+    for(int i=0;i<size;i++){
+        for(int j=0;j<size;j++){
             if(i==j)
-                adj_matrix[i][j] += deg_matrix[i];
-            if(adj_matrix[i][j]==1)
-                adj_matrix[i][j] = -1;
+                adj_matrix[i][j] += (double)deg_matrix[i];
+            else if(adj_matrix[i][j] == 1.0)
+                adj_matrix[i][j] = -1.0;
         }
     }
     return adj_matrix;
+}
+
+void reverse_power_iteration(double **matrix, int size){
+    double **m_cpy = (double*)malloc(sizeof(double*)*size);
+    if(!m_cpy)
+        return;
+    matrix_cpy(m_cpy,matrix,size);
+    
 }
