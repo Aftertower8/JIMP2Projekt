@@ -1,6 +1,34 @@
 #ifndef _MATRIX_OP_H_
 #define _MATRIX_OP_H_
 #include "graf.h"
+
+typedef struct{
+    int size;
+    double *data;
+} Matrix;   //N x N matrix
+
+typedef struct{
+    int size;
+    double *data;
+} Vector;
+
+static inline double getM(Matrix *m, int i, int j){
+    return m->data[i * m->size + j];
+}
+
+static inline void setM(Matrix *m, int i, int j, double val){
+    m->data[i * m->size + j] = val;
+}
+
+static inline double geV(Vector *v, int i){
+    return v->data[i];
+}
+
+static inline void setV(Vector *v, int i, int val){
+    return v->data[i] = val;
+}
+
+
 double** create_adjacency_matrix(graf g);  //stworzy macierz sasiedztwa, dodac argumenty (ustalic strukture grafu) - ozn. A
 int* create_degree_vector(double** adj_matrix, int size);  //ozn. D
 double** adjacency_to_laplacian_matrix(double** adj_matrix, int* deg_matrix, int size);     //L = D - A 

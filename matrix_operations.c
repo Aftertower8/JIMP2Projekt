@@ -1,7 +1,20 @@
 #include "matrix_operations.h"
 #include <stdlib.h>
 #include <math.h>
-#define max(a,b) (((a)>(b)) ? (a) : (b))\
+#define max(a,b) (((a)>(b)) ? (a) : (b))
+//#define MATRIX(m,i,j) (m)->data[(i)*(m)->size +(j)]
+
+/*
+    TODO:
+    -poprawic komentarze
+    -wprowadzic strukture na macierze i wektory
+    -optymalizacja
+    -byc moze zmiana metody
+    -zmiana nazw zmiennych
+    -sprawdzenie poprawnosci
+    -przerzucenie elementow do spectral.c i .h
+    -obsluga bledow
+*/
 
 const double sigma = 1e-6;
 const double eps = 1e-9;
@@ -26,33 +39,40 @@ void error_alocating(double **matrix, int i){
 
 void matrix_cpy(double **dest, double **source, int size){
     for(int i=0;i<size; i++){
+        /*
         dest[i] = (double*)malloc(sizeof(double) * (size));
         if(!dest[i]){
             error_alocating(dest,i);
             dest=NULL;
             return;
         }
+        */
         for(int j=0;j<size;j++)
             dest[i][j] = source[i][j];
     }
 }
 
-double** create_adjacency_matrix(graf g){
-    int size = get_max_vertex(g)+1;
-    int **adj_matrix = (int**)malloc(sizeof(int*)*size);
-    if(!adj_matrix)
+double** allocate_matrix(int size){
+    double **matrix = (double**)malloc(sizeof(double*)*size);
+    if(!matrix)
         return NULL;
     for(int i=0;i<size;i++){
-        adj_matrix[i] = (int*)calloc(size, sizeof(int));
-        if(!adj_matrix[i]){
-            error_alocating(adj_matrix,i);
-            adj_matrix=NULL;
+        matrix[i] = (double*)calloc(size, sizeof(double));
+        if(!matrix[i]){
+            error_alocating(matrix,i);
+            matrix=NULL;
             return NULL;
         }
     }
-    for(int i=0; i<size; i++){
+    return matrix;
+}
+
+double** create_adjacency_matrix(graf g){
+    int size = get_max_vertex(g)+1;
+    double **adj_matrix = allocate_matrix(size);
+    for(int i=0; i<g.l_l; i++){
         int a=g.linki[i].a;
-        int b=g.linki[b].b;
+        int b=g.linki[i].b;
         adj_matrix[a][b]=1.0;
         adj_matrix[b][a]=1.0;
     }
@@ -142,7 +162,7 @@ int LU_solve(double **A, int *P, double *current, double *res, double *help_vec,
     }
     for(int i=size-1; i>=0; i--){               //U * w = help_vec
         res[i] = help_vec[i];
-        for(int j=i+1; i<size; j++){
+        for(int j=i+1; j<size; j++){
             res[i] -= (A[i][j] * res[j]);
         }
         if(is_zero(A[i][i]))
@@ -176,9 +196,9 @@ int vector_orthagonalization(double *result, double *component, int size){
     double squared_len = squared_length(component,size);
     if(fabs(squared_len) < 1e-14)
         return -1;
-    scaling(component,size,scalar/squared_len);
+    double coeff = scalar / squared_len;
     for(int i=0;i<size; i++)
-        result[i] -= component[i];
+        result[i] -= coeff * component[i];
     return 0;
 }
 
@@ -196,10 +216,10 @@ int vector_normalize(double *v, int n){
 }
 
 //do spectral
-void reverse_power_iteration(double **matrix, int size){
-    double **A = (double*)malloc(sizeof(double*)*size);
-    if(!A)
-        return;
+int reverse_power_iteration(double **matrix, int size){
+    int error = 0;
+    int converged = 0;
+    double **A = allocate_matrix(size);
     matrix_cpy(A,matrix,size);
     int *P = (int*)malloc(sizeof(int) * size); 
     for(int i=0;i<size;i++){
@@ -211,8 +231,111 @@ void reverse_power_iteration(double **matrix, int size){
     double *w = (double*)calloc(size,sizeof(double));
     for(int i=0;i<size;i++)
         v[i] = (double)rand() / RAND_MAX;
+    double *ones = malloc(sizeof(double) * size);   //v1 which is corresponding to lambda1 = 0
+    for(int i=0;i<size;i++)
+        ones[i] = 1.0;
+    vector_orthagonalization(v, ones, size);
+    vector_normalize(v, size);
+    double lambda2 = 0.0;
+    double lambda2_prev = 1.0;
     double *help_vec = (double*)malloc(sizeof(double)*size);
+    double *Lap_w = malloc(sizeof(double) * size);
     for(int i=0;i<1000;i++){
-        LU_solve(A, P, v, w, help_vec, size);
+        if(LU_solve(A, P, v, w, help_vec, size)==-1){
+            error=1;
+            break;
+        }
+        vector_orthagonalization(w,ones,size);  //delete component v1
+        if(vector_normalize(w,size)==-1){
+            error=1;
+            break;
+        }
+        
+        for(int j=0; j<size;j++){
+            //lambda2 = w * (Lap * w)/(w * w)
+            //w*w == 1
+            Lap_w[j] = 0.0;
+            for(int k=0;k<size;k++)
+                Lap_w[j] += matrix[j][k] * w[j];
+        }
+        lambda2 = scalar_product(w, Lap_w, size);
+
+        double *tmp = v;
+        v = w;
+        w = tmp;
+        
+        if(is_zero(lambda2-lambda2_prev)){
+            converged = 1;
+            break;
+        }
+        lambda2_prev=lambda2;
     }
+
+    double *v2 = v;
+    double sigma3 = lambda2 + sigma;
+
+    matrix_cpy(A, matrix, size);
+    for(int i=0; i<size; i++){
+        P[i] = i;
+        A[i][i] -= sigma3;
+    }
+    LU_decompose(A,P,size);
+    double *current = w;
+    double *nxt = malloc(sizeof(double) * size);
+    if(!nxt){
+        error=1;
+    }
+    for(int i=0;i<size;i++)
+        current[i] = (double)rand() / RAND_MAX;
+    vector_orthagonalization(current, ones, size);
+    vector_orthagonalization(current, v2, size);
+    vector_normalize(current, size);
+    double lambda3 = 0.0;
+    double lambda3_prev = 1.0;
+    for(int i=0;i<1000;i++){
+        if(LU_solve(A, P, current, nxt, help_vec, size)==-1){
+            error=1;
+            break;
+        }
+        vector_orthagonalization(nxt,ones,size);
+        vector_orthagonalization(nxt, v2, size);
+        if(vector_normalize(nxt,size)==-1){
+            error=1;
+            break;
+        }
+        
+        for(int i=0; i<size;i++){
+            //lambda2 = w * (Lap * w)/(w * w)
+            //w*w == 1
+            Lap_w[i] = 0.0;
+            for(int j=0;j<size;j++)
+                Lap_w[i] += matrix[i][j] * nxt[j];
+        }
+        lambda3 = scalar_product(nxt, Lap_w, size);
+
+        double *tmp = current;
+        current = nxt;
+        nxt = tmp;
+        
+        if(is_zero(lambda3-lambda3_prev)){
+            converged=1;
+            break;
+        }
+        lambda3_prev=lambda3;
+    }
+    double *v3 = current;
+    free_matrix(A,size);
+    free(P);
+    free(ones);
+    free(help_vec);
+    free(Lap_w);
+    if(error){
+        free(v);
+        free(w);
+        free(nxt);
+        v2 = NULL;
+        v3 = NULL;
+        return -1;
+    }
+    return 1;
 }
