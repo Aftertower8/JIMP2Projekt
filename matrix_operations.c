@@ -1,9 +1,8 @@
 #include "matrix_operations.h"
 #include <stdlib.h>
 #include <math.h>
-#define max(a,b) (((a)>(b)) ? (a) : (b))
-//#define MATRIX(m,i,j) (m)->data[(i)*(m)->size +(j)]
-
+#include "utlis.h"
+#define ITERATIONS 10000
 /*
     TODO:
     -poprawic komentarze
@@ -16,17 +15,10 @@
     -obsluga bledow
 */
 
-const double sigma = 1e-6;
-const double eps = 1e-9;
-
-int is_zero(double a){
-    return fabs(a) < eps;
-}
-
 int get_max_vertex(graf g){
     int max_vert = -1;
     for(int i=0; i<g.l_pkt; i++)
-        max_vert = max(max(g.linki[i].a, g.linki[i].b), max_vert);
+        max_vert = MAX(MAX(g.linki[i].a, g.linki[i].b), max_vert);
     return max_vert;
 }
 
@@ -215,6 +207,174 @@ int vector_normalize(double *v, int n){
     return 0;
 }
 
+int power_iteration(double **A,  double **matrix, double *P,
+                    double *help_vec, double *ones, double *Lap_w,
+                    double *nxt, double *cur, double *v2,
+                    int size, double lambda, double lambda_prev
+                    ){
+    if(LU_solve(A, P, cur, nxt, help_vec, size)==-1){
+    //    error=1;
+        return -1;
+    }
+    vector_orthagonalization(nxt,ones,size);  //delete component v1
+    if(!v2)
+        vector_orthagonalization(nxt,v2,size);
+    if(vector_normalize(nxt,size)==-1){
+    //    error=1;
+        return -1;
+    }
+        
+    for(int j=0; j<size;j++){
+        //lambda2 = w * (Lap * w)/(w * w)
+        //w*w == 1
+        Lap_w[j] = 0.0;
+        for(int k=0;k<size;k++)
+            Lap_w[j] += matrix[j][k] * nxt[k];
+    }
+    lambda = scalar_product(nxt, Lap_w, size);
+        
+    if(is_zero(lambda-lambda_prev)){
+        double *tmp = cur;
+        cur = nxt;
+        nxt = tmp;
+        return 1;
+    }
+    lambda_prev=lambda;
+
+    double *tmp = cur;
+    cur = nxt;
+    nxt = tmp;
+
+    return 0;                    
+}
+
+void error_clean(double **A, int *P, double *cur2, double *nxt2,
+                 double *cur3, double *nxt3, double *ones,
+                 double *help_vec, double *Lap_w, int size){
+        free_matrix(A,size);
+        free(cur2);
+        free(nxt2);
+        free(cur3);
+        free(nxt3);
+        free(ones);
+        free(help_vec);
+        free(Lap_w);
+    }
+
+int reverse_power_iteration(double **matrix, int size, double *x, double *y){
+    int iteration_exit_value = 0; //after each power_iteration exit code from said function is assigned (error detection)
+    int error = 0;  //flag for error
+    int converged2 = 0; //flag if v2 converged
+    int converged3 = 0; //flag if v3 converged
+    double lambda2 = 0.0;
+    double lambda2_prev = 1.0;
+
+    //first initialized as null as C standard allows free(NULL) (in case of error_clean())
+    double **A       = NULL;
+    double *cur2     = NULL;
+    double *nxt2     = NULL;
+    double *cur3     = NULL;  // after v2 iteration memory from nxt2 is assigned as it is not needed
+    double *nxt3     = NULL;
+    double *ones     = NULL;  // v1 which is corresponding to lambda1 = 0
+    double *help_vec = NULL;
+    double *Lap_w    = NULL;
+    int *P           = NULL;  // keeps track of changed lines in LU_decompose (while searching for max_row)
+
+    A        = allocate_matrix(size);
+    P        = malloc(sizeof(int) * size);
+    cur2     = malloc(sizeof(double) * size);
+    nxt2     = calloc(size, sizeof(double));
+    nxt3     = malloc(sizeof(double) * size);
+    ones     = malloc(sizeof(double) * size);
+    help_vec = malloc(sizeof(double) * size);
+    Lap_w    = malloc(sizeof(double) * size);
+
+    if(!A || !P || !cur2 || !nxt2 || !nxt3 || !ones || !help_vec || !Lap_w){
+        error_clean(A, P, cur2, nxt2, cur3, nxt3, ones, help_vec, Lap_w, size);
+        return -1;
+    }
+
+    matrix_cpy(A,matrix,size);
+    
+    for(int i=0;i<size;i++){
+        P[i] = i;   //P is made to keep the track of changed lines is LU_decompose (while searching for max_row)
+        A[i][i] -= SIGMA_SHIFT;
+    }
+    LU_decompose(A,P,size);
+    
+    for(int i=0;i<size;i++)
+        cur2[i] = (double)rand() / RAND_MAX;
+    
+    for(int i=0;i<size;i++)
+        ones[i] = 1.0;
+    vector_orthagonalization(cur2, ones, size);
+    vector_normalize(cur2, size);
+    
+    for(int i=0;i<ITERATIONS;i++){
+        iteration_exit_value = power_iteration(A, matrix, P, help_vec, ones, Lap_w, nxt2, cur2, NULL, size, lambda2, lambda2_prev);
+        if(iteration_exit_value==-1){
+            error_clean(A,P,cur2,nxt2,cur3,nxt3,ones,help_vec,Lap_w,size);
+            return -1;
+        }
+        else if(iteration_exit_value==1){
+            converged2 = 1;
+            break;
+        }
+    }
+
+    double *v2 = cur2;
+
+    matrix_cpy(A, matrix, size);
+    for(int i=0; i<size; i++){
+        P[i] = i;
+        A[i][i] -= lambda2 + SIGMA_SHIFT;
+    }
+    LU_decompose(A,P,size);
+    double *cur3 = nxt2;
+    
+    if(!nxt3){
+        error=1;
+    }
+    for(int i=0;i<size;i++)
+        cur3[i] = (double)rand() / RAND_MAX;
+    vector_orthagonalization(cur3, ones, size);
+    vector_orthagonalization(cur3, v2, size);
+    vector_normalize(cur3, size);
+    double lambda3 = 0.0;
+    double lambda3_prev = 1.0;
+    for(int i=0;i<ITERATIONS;i++){
+        iteration_exit_value = power_iteration(A,matrix,P,help_vec,ones,Lap_w,nxt3,cur3,v2,converged3,lambda3,lambda3_prev);
+        if(iteration_exit_value==-1){
+            error_clean(A,P,cur2,nxt2,cur3,nxt3,ones,help_vec,Lap_w,size);
+            return -1;
+        }
+        if(iteration_exit_value==1){
+            converged3 = 1;
+            break;
+        }
+    }
+    double *v3 = cur3;
+    //x and y coordinates - P(x[i],y[i]) is point of i-vertex
+    x = v2;
+    y = v3;
+    free_matrix(A,size);
+    free(P);
+    free(ones);
+    free(help_vec);
+    free(Lap_w);
+    if(error){
+        free(cur2);
+        free(nxt2);
+        free(nxt3);
+        v2 = NULL;
+        v3 = NULL;
+        return -1;
+    }
+    if(converged2==0 || converged3==0)
+        return 1;
+    return 0;
+}
+/*
 //do spectral
 int reverse_power_iteration(double **matrix, int size){
     int error = 0;
@@ -224,29 +384,29 @@ int reverse_power_iteration(double **matrix, int size){
     int *P = (int*)malloc(sizeof(int) * size); 
     for(int i=0;i<size;i++){
         P[i] = i;   //P is made to keep the track of changed lines is LU_decompose (while searching for max_row)
-        A[i][i] -= sigma;
+        A[i][i] -= SIGMA_SHIFT;
     }
     LU_decompose(A,P,size);
-    double *v = (double*)malloc(sizeof(double)*size);
-    double *w = (double*)calloc(size,sizeof(double));
+    double *cur2 = (double*)malloc(sizeof(double)*size);
+    double *nxt2 = (double*)calloc(size,sizeof(double));
     for(int i=0;i<size;i++)
-        v[i] = (double)rand() / RAND_MAX;
+        cur2[i] = (double)rand() / RAND_MAX;
     double *ones = malloc(sizeof(double) * size);   //v1 which is corresponding to lambda1 = 0
     for(int i=0;i<size;i++)
         ones[i] = 1.0;
-    vector_orthagonalization(v, ones, size);
-    vector_normalize(v, size);
+    vector_orthagonalization(cur2, ones, size);
+    vector_normalize(cur2, size);
     double lambda2 = 0.0;
     double lambda2_prev = 1.0;
-    double *help_vec = (double*)malloc(sizeof(double)*size);
+    double *help_vec = malloc(sizeof(double)*size);
     double *Lap_w = malloc(sizeof(double) * size);
     for(int i=0;i<1000;i++){
-        if(LU_solve(A, P, v, w, help_vec, size)==-1){
+        if(LU_solve(A, P, cur2, nxt2, help_vec, size)==-1){
             error=1;
             break;
         }
-        vector_orthagonalization(w,ones,size);  //delete component v1
-        if(vector_normalize(w,size)==-1){
+        vector_orthagonalization(nxt2,ones,size);  //delete component v1
+        if(vector_normalize(nxt2,size)==-1){
             error=1;
             break;
         }
@@ -256,50 +416,52 @@ int reverse_power_iteration(double **matrix, int size){
             //w*w == 1
             Lap_w[j] = 0.0;
             for(int k=0;k<size;k++)
-                Lap_w[j] += matrix[j][k] * w[j];
+                Lap_w[j] += matrix[j][k] * nxt2[k];
         }
-        lambda2 = scalar_product(w, Lap_w, size);
-
-        double *tmp = v;
-        v = w;
-        w = tmp;
+        lambda2 = scalar_product(nxt2, Lap_w, size);
         
         if(is_zero(lambda2-lambda2_prev)){
+            double *tmp = cur2;
+            cur2 = nxt2;
+            nxt2 = tmp;
             converged = 1;
             break;
         }
         lambda2_prev=lambda2;
+
+        double *tmp = cur2;
+        cur2 = nxt2;
+        nxt2 = tmp;
     }
 
-    double *v2 = v;
-    double sigma3 = lambda2 + sigma;
+    double *v2 = cur2;
 
     matrix_cpy(A, matrix, size);
     for(int i=0; i<size; i++){
         P[i] = i;
-        A[i][i] -= sigma3;
+        A[i][i] -= lambda2 + SIGMA_SHIFT;
     }
     LU_decompose(A,P,size);
-    double *current = w;
-    double *nxt = malloc(sizeof(double) * size);
-    if(!nxt){
+    double *cur3 = nxt2;
+    double *nxt3 = malloc(sizeof(double) * size);
+    if(!nxt3){
         error=1;
     }
     for(int i=0;i<size;i++)
-        current[i] = (double)rand() / RAND_MAX;
-    vector_orthagonalization(current, ones, size);
-    vector_orthagonalization(current, v2, size);
-    vector_normalize(current, size);
+        cur3[i] = (double)rand() / RAND_MAX;
+    vector_orthagonalization(cur3, ones, size);
+    vector_orthagonalization(cur3, v2, size);
+    vector_normalize(cur3, size);
     double lambda3 = 0.0;
     double lambda3_prev = 1.0;
     for(int i=0;i<1000;i++){
-        if(LU_solve(A, P, current, nxt, help_vec, size)==-1){
+        if(LU_solve(A, P, cur3, nxt3, help_vec, size)==-1){
             error=1;
             break;
         }
-        vector_orthagonalization(nxt,ones,size);
-        vector_orthagonalization(nxt, v2, size);
-        if(vector_normalize(nxt,size)==-1){
+        vector_orthagonalization(nxt3,ones,size);
+        vector_orthagonalization(nxt3, v2, size);
+        if(vector_normalize(nxt3,size)==-1){
             error=1;
             break;
         }
@@ -309,33 +471,37 @@ int reverse_power_iteration(double **matrix, int size){
             //w*w == 1
             Lap_w[i] = 0.0;
             for(int j=0;j<size;j++)
-                Lap_w[i] += matrix[i][j] * nxt[j];
+                Lap_w[i] += matrix[i][j] * nxt3[j];
         }
-        lambda3 = scalar_product(nxt, Lap_w, size);
-
-        double *tmp = current;
-        current = nxt;
-        nxt = tmp;
+        lambda3 = scalar_product(nxt3, Lap_w, size);
         
         if(is_zero(lambda3-lambda3_prev)){
+            double *tmp = cur3;
+            cur3 = nxt3;
+            nxt3 = tmp;
             converged=1;
             break;
         }
         lambda3_prev=lambda3;
+
+        double *tmp = cur3;
+        cur3 = nxt3;
+        nxt3 = tmp;
     }
-    double *v3 = current;
+    double *v3 = cur3;
     free_matrix(A,size);
     free(P);
     free(ones);
     free(help_vec);
     free(Lap_w);
     if(error){
-        free(v);
-        free(w);
-        free(nxt);
+        free(cur2);
+        free(nxt2);
+        free(nxt3);
         v2 = NULL;
         v3 = NULL;
         return -1;
     }
     return 1;
 }
+*/

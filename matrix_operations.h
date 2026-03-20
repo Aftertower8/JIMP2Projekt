@@ -38,6 +38,5 @@ double scalar_product(double *a, double *b, int n);
 double squared_length(double *v, int n);
 void scaling(double *v, int size, int scalar);
 int vector_orthagonalization(double *result, double *component, int size);
-void multiply_matrix_by_vector(double** matrix, double *vector, double *result, int n);
-void power_iteration(double** matrix, double* vector, int n, int iterations);
+//void power_iteration(double** matrix, double* vector, int n, int iterations);
 #endif
