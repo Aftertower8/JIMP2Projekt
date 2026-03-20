@@ -3,7 +3,12 @@
 #include <math.h>
 #define max(a,b) (((a)>(b)) ? (a) : (b))\
 
-const double eps = 1e-6;
+const double sigma = 1e-6;
+const double eps = 1e-9;
+
+int is_zero(double a){
+    return fabs(a) < eps;
+}
 
 int get_max_vertex(graf g){
     int max_vert = -1;
@@ -19,7 +24,7 @@ void error_alocating(double **matrix, int i){
     free(matrix);
 }
 
-void matrix_cphelp_vec(double **dest, double **source, int size){
+void matrix_cpy(double **dest, double **source, int size){
     for(int i=0;i<size; i++){
         dest[i] = (double*)malloc(sizeof(double) * (size));
         if(!dest[i]){
@@ -32,7 +37,7 @@ void matrix_cphelp_vec(double **dest, double **source, int size){
     }
 }
 
-double** create_adjacenchelp_vec_matrix(graf g){
+double** create_adjacency_matrix(graf g){
     int size = get_max_vertex(g)+1;
     int **adj_matrix = (int**)malloc(sizeof(int*)*size);
     if(!adj_matrix)
@@ -81,7 +86,7 @@ void free_degree_vector(int *vec){
     vec=NULL;
 }
 
-double** adjacenchelp_vec_to_laplacian_matrix(double** adj_matrix, int* deg_matrix, int size){    //no new matrix in order to save memorhelp_vec and time
+double** adjacency_to_laplacian_matrix(double** adj_matrix, int* deg_matrix, int size){    //no new matrix in order to save memorhelp_vec and time
 
     for(int i=0;i<size;i++){
         for(int j=0;j<size;j++){
@@ -94,7 +99,7 @@ double** adjacenchelp_vec_to_laplacian_matrix(double** adj_matrix, int* deg_matr
     return adj_matrix;
 }
 //LU matrix -> A = L * U
-//in order to save memorhelp_vec, L and U matrix are stored in A matrix
+//in order to save memory, L and U matrix are stored in A matrix
 void LU_decompose(double **A, int *P, int size){    //implementation of Gaussian  elimination in order to get LU matrix
     //searching for max_row in order to minimalize rounding errors
     for(int k=0; k<size; k++){
@@ -109,7 +114,7 @@ void LU_decompose(double **A, int *P, int size){    //implementation of Gaussian
         A[k] = A[max_row];
         A[max_row] = tmp_row;
 
-        if(fabs(A[k][k]) < 1e-14)               //check if A[k][k] ~ 0
+        if(is_zero(A[k][k]))               //check if A[k][k] ~ 0
             continue;
         for(int i=k+1; i<size; i++){            //Gaussian elimination - building LU matrix
             double factor = A[i][k] / A[k][k];  //A[i][k] elimination factor
@@ -120,7 +125,7 @@ void LU_decompose(double **A, int *P, int size){    //implementation of Gaussian
     }
 }
 
-void LU_solve(double **A, int *P, double *current, double *res, int size){  //A * w = v
+int LU_solve(double **A, int *P, double *current, double *res, double *help_vec, int size){  //A * w = v
     //U - upper
     //L - lower
     //A * res = current
@@ -128,7 +133,6 @@ void LU_solve(double **A, int *P, double *current, double *res, int size){  //A 
     //helper: help_vec = U * res
     //L * help_vec = current
     //U * res = help_vec
-    double *help_vec = (double*)malloc(sizeof(double)*size);
     for(int i=0; i<size; i++){
         help_vec[i] = current[P[i]];                         //current[P[i]] to get valid index after changing lines in LU_decompose
         for(int j=0; j<i; j++){                 //L * help_vec = v
@@ -141,25 +145,74 @@ void LU_solve(double **A, int *P, double *current, double *res, int size){  //A 
         for(int j=i+1; i<size; j++){
             res[i] -= (A[i][j] * res[j]);
         }
+        if(is_zero(A[i][i]))
+            return -1;
         res[i] /= A[i][i];
     }
-    free(help_vec);
+    return 0;
 }
 
+double scalar_product(double *a, double *b, int n){
+    double scalar=0;
+    for(int i=0;i<n;i++)
+        scalar += a[i]*b[i];
+    return scalar;
+}
+
+double squared_length(double *v, int n){
+    double s_len=0;
+    for(int i=0;i<n;i++)
+        s_len += pow(v[i],2);
+    return s_len;
+}
+
+void scaling(double *v, int size, int scalar){
+    for(int i=0;i<size;i++)
+        v[i] *= scalar;
+}
+
+int vector_orthagonalization(double *result, double *component, int size){
+    double scalar = scalar_product(result,component,size);
+    double squared_len = squared_length(component,size);
+    if(fabs(squared_len) < 1e-14)
+        return -1;
+    scaling(component,size,scalar/squared_len);
+    for(int i=0;i<size; i++)
+        result[i] -= component[i];
+    return 0;
+}
+
+double vector_norm(double *v, int n){
+    return sqrt(squared_length(v,n));
+}
+
+int vector_normalize(double *v, int n){
+    double norm = vector_norm(v,n);
+    if(is_zero(norm))
+        return -1;
+    for(int i=0;i<n;i++)
+        v[i] /= norm;
+    return 0;
+}
+
+//do spectral
 void reverse_power_iteration(double **matrix, int size){
     double **A = (double*)malloc(sizeof(double*)*size);
     if(!A)
         return;
-    matrix_cphelp_vec(A,matrix,size);
+    matrix_cpy(A,matrix,size);
     int *P = (int*)malloc(sizeof(int) * size); 
     for(int i=0;i<size;i++){
         P[i] = i;   //P is made to keep the track of changed lines is LU_decompose (while searching for max_row)
-        A[i][i] -= eps;
+        A[i][i] -= sigma;
     }
     LU_decompose(A,P,size);
     double *v = (double*)malloc(sizeof(double)*size);
     double *w = (double*)calloc(size,sizeof(double));
     for(int i=0;i<size;i++)
         v[i] = (double)rand() / RAND_MAX;
-    
+    double *help_vec = (double*)malloc(sizeof(double)*size);
+    for(int i=0;i<1000;i++){
+        LU_solve(A, P, v, w, help_vec, size);
+    }
 }
