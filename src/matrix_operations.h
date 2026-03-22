@@ -20,7 +20,7 @@ static inline void setM(Matrix *m, int i, int j, double val){
     m->data[i * m->size + j] = val;
 }
 
-static inline double geV(Vector *v, int i){
+static inline double getV(Vector *v, int i){
     return v->data[i];
 }
 
@@ -29,7 +29,7 @@ static inline void setV(Vector *v, int i, int val){
 }
 
 
-double** create_adjacency_matrix(graf g);  //stworzy macierz sasiedztwa, dodac argumenty (ustalic strukture grafu) - ozn. A
+Matrix* create_adjacency_matrix(graf g);  //stworzy macierz sasiedztwa, dodac argumenty (ustalic strukture grafu) - ozn. A
 int* create_degree_vector(double** adj_matrix, int size);  //ozn. D
 double** adjacency_to_laplacian_matrix(double** adj_matrix, int* deg_matrix, int size);     //L = D - A 
 double vector_norm(double *v, int n);   //norma wektora

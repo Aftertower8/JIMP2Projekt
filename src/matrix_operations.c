@@ -3,6 +3,8 @@
 #include <math.h>
 #include "utlis.h"
 #define ITERATIONS 10000
+#define MAT(m,i,j) ((m)->data[(i) * (m)->size + (j)])
+#define VEC(v,i) ((v)->data[(i)])
 /*
     TODO:
     -poprawic komentarze
@@ -22,122 +24,141 @@ int get_max_vertex(graf g){
     return max_vert;
 }
 
-void error_alocating(double **matrix, int i){
+void error_alocating(double **matrix, int i){   //niepotrzebne
     for(int j=0;j<i;j++){
         free(matrix[j]);
     }
     free(matrix);
 }
 
-void matrix_cpy(double **dest, double **source, int size){
-    for(int i=0;i<size; i++){
-        /*
-        dest[i] = (double*)malloc(sizeof(double) * (size));
-        if(!dest[i]){
-            error_alocating(dest,i);
-            dest=NULL;
-            return;
-        }
-        */
-        for(int j=0;j<size;j++)
-            dest[i][j] = source[i][j];
-    }
+int matrix_cpy(Matrix *dest, Matrix *source){
+    if(!dest || !source)
+        return -1;
+    for(int i=0;i<dest->size * dest->size; i++)
+        source->data[i] = dest->data[i];
+    return 0;
 }
 
-double** allocate_matrix(int size){
-    double **matrix = (double**)malloc(sizeof(double*)*size);
-    if(!matrix)
+Matrix *allocate_matrix(int size){
+    Matrix *M = malloc(sizeof(Matrix));
+    if(!M)
         return NULL;
-    for(int i=0;i<size;i++){
-        matrix[i] = (double*)calloc(size, sizeof(double));
-        if(!matrix[i]){
-            error_alocating(matrix,i);
-            matrix=NULL;
-            return NULL;
-        }
+    M->size = size;
+    M->data = calloc(size * size,sizeof(double));
+    if(!M->data){
+        free(M);
+        return NULL;
     }
-    return matrix;
+    return M;
 }
 
-double** create_adjacency_matrix(graf g){
+Vector *allocate_vector(int size){
+    Vector *V = malloc(sizeof(Vector));
+    if(!V)
+        return NULL;
+    V->size = size;
+    V->data = calloc(size,sizeof(double));
+    if(!V->data){
+        free(V);
+        return NULL;
+    }
+    return V;
+}
+
+Matrix *create_adjacency_matrix(graf g){
     int size = get_max_vertex(g)+1;
-    double **adj_matrix = allocate_matrix(size);
+    Matrix *adj = allocate_matrix(size);
     for(int i=0; i<g.l_l; i++){
         int a=g.linki[i].a;
         int b=g.linki[i].b;
-        adj_matrix[a][b]=1.0;
-        adj_matrix[b][a]=1.0;
+        MAT(adj,a,b) = 1.0;
+        MAT(adj,b,a) = 1.0;
     }
-    return adj_matrix;
+    return adj;
 }
 
-void free_matrix(double **matrix, int size){
-    for(int i=0;i<size;i++){
-        free(matrix[i]);
-        matrix[i]=NULL;
-    }
-    free(matrix);
-    matrix=NULL;
+void free_matrix(Matrix *M){
+    free(M->data);
+    free(M);
 }
 
-int* create_degree_vector(double** adj_matrix, int size){
-    int *degree_vector = (int*)calloc(size, sizeof(int));
+void free_vec(Vector *V){
+    free(V->data);
+    fre(V);
+}
+
+Vector* create_degree_vector(Matrix *M){
+    Vector *degree_vector = malloc(sizeof(Vector));
     if(!degree_vector)
         return NULL;
-    for(int i=0;i<size;i++){
-        for(int j=0;j<size;j++){
-            if(adj_matrix[i][j]==1)
-                degree_vector[i]++;
+    degree_vector->size = M->size;
+    degree_vector->data = calloc(degree_vector->size, sizeof(int));
+    if(!degree_vector->data){
+        free(degree_vector);
+        return NULL;
+    }
+    
+    for(int i=0;i<M->size;i++){
+        for(int j=0;j<M->size;j++){
+            if(MAT(M,i,j)==1)
+                degree_vector->data[i]++;
         }
     }
     return degree_vector;
 }
 
-void free_degree_vector(int *vec){
+void free_degree_vector(int *vec){  //niepotrzebne
     free(vec);
     vec=NULL;
 }
 
-double** adjacency_to_laplacian_matrix(double** adj_matrix, int* deg_matrix, int size){    //no new matrix in order to save memorhelp_vec and time
+Matrix* adjacency_to_laplacian_matrix(Matrix* adj_matrix, Vector* deg_matrix){    //no new matrix in order to save memorhelp_vec and time
 
-    for(int i=0;i<size;i++){
-        for(int j=0;j<size;j++){
+    for(int i=0;i<adj_matrix->size;i++){
+        for(int j=0;j<adj_matrix->size;j++){
             if(i==j)
-                adj_matrix[i][j] += (double)deg_matrix[i];
-            else if(adj_matrix[i][j] == 1.0)
-                adj_matrix[i][j] = -1.0;
+                MAT(adj_matrix,i,j) += deg_matrix->data[i];
+            else if(MAT(adj_matrix,i,j) == 1.0)
+                MAT(adj_matrix,i,j) = -1.0;
         }
     }
     return adj_matrix;
 }
 //LU matrix -> A = L * U
 //in order to save memory, L and U matrix are stored in A matrix
-void LU_decompose(double **A, int *P, int size){    //implementation of Gaussian  elimination in order to get LU matrix
+void LU_decompose(Matrix *A, int *P){    //implementation of Gaussian  elimination in order to get LU matrix
+    double *tmp_row = malloc(sizeof(double) * A->size);
     //searching for max_row in order to minimalize rounding errors
-    for(int k=0; k<size; k++){
+    for(int k=0; k<A->size; k++){
         int max_row = k;
-        for(int i = k+1; i<size; i++)
-            if(fabs(A[i][k]) > fabs(A[max_row][k]))
+        for(int i = k+1; i<A->size; i++)
+            if(fabs(MAT(A,i,k)) > fabs(MAT(A,max_row,k)))
                 max_row = i;
-        int tmp = P[k];
-        P[k] = P[max_row];
-        P[max_row] = tmp;
-        double *tmp_row = A[k];
-        A[k] = A[max_row];
-        A[max_row] = tmp_row;
+        if(max_row != k){
+            int tmp = P[k];
+            P[k] = P[max_row];
+            P[max_row] = tmp;
 
-        if(is_zero(A[k][k]))               //check if A[k][k] ~ 0
+            for(int j=0; j<A->size; j++){
+                tmp_row[j] = MAT(A, k,j);
+                MAT(A,k,j) = MAT(A, max_row,j);
+                MAT(A,max_row,j) = tmp_row[j];
+            }
+
+        }
+        if(is_zero(MAT(A,k,k)))               //check if A[k][k] ~ 0
             continue;
-        for(int i=k+1; i<size; i++){            //Gaussian elimination - building LU matrix
-            double factor = A[i][k] / A[k][k];  //A[i][k] elimination factor
-            A[i][k] = factor;                   //to have L and U in one matrix store factor in eliminated position                  
-            for(int j = k+1; j < size; j++)
-                A[i][j] -= factor * A[k][j];
+        for(int i=k+1; i<A->size; i++){            //Gaussian elimination - building LU matrix
+            double factor = MAT(A,i,k) / MAT(A,k,k);  //A[i][k] elimination factor
+            MAT(A,i,k) = factor;                   //to have L and U in one matrix store factor in eliminated position                  
+            for(int j = k+1; j < A->size; j++)
+                MAT(A,i,j) -= factor * MAT(A,k,j);
         }
     }
 }
 
-int LU_solve(double **A, int *P, double *current, double *res, double *help_vec, int size){  //A * w = v
+
+int LU_solve(Matrix *A, int *P, Vector *current, Vector *res, Vector *help_vec){  //A * w = v
     //U - upper
     //L - lower
     //A * res = current
@@ -145,140 +166,138 @@ int LU_solve(double **A, int *P, double *current, double *res, double *help_vec,
     //helper: help_vec = U * res
     //L * help_vec = current
     //U * res = help_vec
-    for(int i=0; i<size; i++){
-        help_vec[i] = current[P[i]];                         //current[P[i]] to get valid index after changing lines in LU_decompose
+    for(int i=0; i<A->size; i++){
+        VEC(help_vec, i) = VEC(current, P[i]); //VEC(current, P[i]) to get valid index after changing lines in LU_decompose
         for(int j=0; j<i; j++){                 //L * help_vec = v
-            help_vec[i] -= (A[i][j] * help_vec[j]);
+            VEC(help_vec, i) -= MAT(A, i, j) * VEC(help_vec, j);
         }
     //no dividing as A[i][i] contains diagonal of U matrix
     }
-    for(int i=size-1; i>=0; i--){               //U * w = help_vec
-        res[i] = help_vec[i];
-        for(int j=i+1; j<size; j++){
-            res[i] -= (A[i][j] * res[j]);
+    for(int i=A->size-1; i>=0; i--){               //U * w = help_vec
+        VEC(res, i) = VEC(help_vec, i);
+        for(int j=i+1; j<A->size; j++){
+            VEC(res, i) -= MAT(A, i, j) * VEC(res, j);
         }
-        if(is_zero(A[i][i]))
+        if(is_zero(MAT(A, i, i)))
             return -1;
-        res[i] /= A[i][i];
+        VEC(res, i) /= MAT(A, i, i);
     }
     return 0;
 }
 
-double scalar_product(double *a, double *b, int n){
+double scalar_product(Vector *a, Vector *b){
     double scalar=0;
-    for(int i=0;i<n;i++)
-        scalar += a[i]*b[i];
+    for(int i=0;i<a->size;i++)
+        scalar += VEC(a,i)*VEC(b,i);
     return scalar;
 }
 
-double squared_length(double *v, int n){
+double squared_length(Vector *v){
     double s_len=0;
-    for(int i=0;i<n;i++)
-        s_len += pow(v[i],2);
+    for(int i=0;i<v->size;i++)
+        s_len += pow(VEC(v,i),2);
     return s_len;
 }
 
-void scaling(double *v, int size, int scalar){
-    for(int i=0;i<size;i++)
-        v[i] *= scalar;
+void scaling(Vector *v, double scalar){
+    for(int i=0;i<v->size;i++)
+        VEC(v,i) *= scalar;
 }
 
-int vector_orthagonalization(double *result, double *component, int size){
-    double scalar = scalar_product(result,component,size);
-    double squared_len = squared_length(component,size);
-    if(fabs(squared_len) < 1e-14)
+int vector_orthagonalization(Vector *result, Vector *component){
+    double scalar = scalar_product(result,component);
+    double squared_len = squared_length(component);
+    if(fabs(squared_len) < EPS)
         return -1;
     double coeff = scalar / squared_len;
-    for(int i=0;i<size; i++)
-        result[i] -= coeff * component[i];
+    for(int i=0;i<result->size; i++)
+        VEC(result,i) -= coeff * VEC(component,i);
     return 0;
 }
 
-double vector_norm(double *v, int n){
-    return sqrt(squared_length(v,n));
+double vector_norm(Vector *v){
+    return sqrt(squared_length(v));
 }
 
-int vector_normalize(double *v, int n){
-    double norm = vector_norm(v,n);
+int vector_normalize(Vector *v){
+    double norm = vector_norm(v);
     if(is_zero(norm))
         return -1;
-    for(int i=0;i<n;i++)
-        v[i] /= norm;
+    for(int i=0;i<v->size;i++)
+        VEC(v,i) /= norm;
     return 0;
 }
 
-int power_iteration(double **A,  double **matrix, double *P,
-                    double *help_vec, double *ones, double *Lap_w,
-                    double *nxt, double *cur, double *v2,
-                    int size, double lambda, double lambda_prev
+int power_iteration(Matrix *A,  Matrix *matrix, Vector *P,
+                    Vector *help_vec, Vector *ones, Vector *Lap_w,
+                    Vector *nxt, Vector *cur, Vector *v2,
+                    double lambda, double lambda_prev
                     ){
-    if(LU_solve(A, P, cur, nxt, help_vec, size)==-1){
-    //    error=1;
+    if(LU_solve(A, P, cur, nxt, help_vec)==-1){
         return -1;
     }
-    vector_orthagonalization(nxt,ones,size);  //delete component v1
+    vector_orthagonalization(nxt,ones);  //delete component v1
     if(!v2)
-        vector_orthagonalization(nxt,v2,size);  //delete component v2 if present
-    if(vector_normalize(nxt,size)==-1){
-    //    error=1;
+        vector_orthagonalization(nxt,v2);  //delete component v2 if present
+    if(vector_normalize(nxt)==-1){
         return -1;
     }
         
-    for(int j=0; j<size;j++){
+    for(int j=0; j<matrix->size;j++){
         //lambda2 = w * (Lap * w)/(w * w)
         //w*w == 1
-        Lap_w[j] = 0.0;
-        for(int k=0;k<size;k++)
-            Lap_w[j] += matrix[j][k] * nxt[k];
+        VEC(Lap_w,j) = 0.0;
+        for(int k=0;k<matrix->size;k++)
+            VEC(Lap_w,j) += MAT(matrix,j,k) * VEC(nxt,k);
     }
-    lambda = scalar_product(nxt, Lap_w, size);
+    lambda = scalar_product(nxt, Lap_w);
         
     if(is_zero(lambda-lambda_prev)){
-        double *tmp = cur;
+        Vector *tmp = cur;
         cur = nxt;
         nxt = tmp;
         return 1;
     }
     lambda_prev=lambda;
 
-    double *tmp = cur;
+    Vector *tmp = cur;
     cur = nxt;
     nxt = tmp;
 
     return 0;                    
 }
 
-void error_clean(double **A, int *P, double *cur2, double *nxt2,
-                 double *cur3, double *nxt3, double *ones,
-                 double *help_vec, double *Lap_w, int size){
-        free_matrix(A,size);
-        free(cur2);
-        free(nxt2);
-        free(cur3);
-        free(nxt3);
-        free(ones);
-        free(help_vec);
-        free(Lap_w);
+void error_clean(Matrix *A, int *P, Vector *cur2, Vector *nxt2,
+                 Vector *cur3, Vector *nxt3, Vector *ones,
+                 Vector *help_vec, Vector *Lap_w){
+        free_matrix(A);
+        free_vec(cur2);
+        free_vec(nxt2);
+        free_vec(cur3);
+        free_vec(nxt3);
+        free_vec(ones);
+        free_vec(help_vec);
+        free_vec(Lap_w);
 }
 
-void prepare_current_vector(double** A, double **matrix, int *P, double *cur, double *ones, double *v2, int size, double lambda){
-    matrix_cpy(A,matrix,size);
+void prepare_current_vector(Matrix* A, Matrix *matrix, int *P, Vector *cur, Vector *ones, Vector *v2, double lambda){
+    matrix_cpy(A,matrix);
     
-    for(int i=0;i<size;i++){
+    for(int i=0;i<A->size;i++){
         P[i] = i;   //P is made to keep the track of changed lines is LU_decompose (while searching for max_row)
-        A[i][i] -= lambda + SIGMA_SHIFT;
+        MAT(A,i,i) -= lambda + SIGMA_SHIFT;
     }
-    LU_decompose(A,P,size);
+    LU_decompose(A,P);
     
-    for(int i=0;i<size;i++)
-        cur[i] = (double)rand() / RAND_MAX;
-    vector_orthagonalization(cur, ones, size);
+    for(int i=0;i<A->size;i++)
+        VEC(cur,i) = (double)rand() / RAND_MAX;
+    vector_orthagonalization(cur, ones);
     if(!v2)
-        vector_orthagonalization(cur, v2, size);
-    vector_normalize(cur, size);
+        vector_orthagonalization(cur, v2);
+    vector_normalize(cur);
 }
 
-int reverse_power_iteration(double **matrix, int size, double *x, double *y){
+int reverse_power_iteration(Matrix *matrix, Vector *x, Vector *y){
     int iteration_exit_value = 0; //after each power_iteration exit code from said function is assigned (error detection)
     int error = 0;  //flag for error
     int converged2 = 0; //flag if v2 converged
@@ -287,42 +306,43 @@ int reverse_power_iteration(double **matrix, int size, double *x, double *y){
     double lambda2_prev = 1.0;
     double lambda3 = 0.0;
     double lambda3_prev = 1.0;
+    int size = matrix->size;
 
     //first initialized as null as C standard allows free(NULL) (in case of error_clean())
-    double **A       = NULL;
-    double *cur2     = NULL;
-    double *nxt2     = NULL;
-    double *cur3     = NULL;  
-    double *nxt3     = NULL;
-    double *ones     = NULL;  // v1 which is corresponding to lambda1 = 0
-    double *help_vec = NULL;
-    double *Lap_w    = NULL;
+    Matrix *A        = NULL;
+    Vector *cur2     = NULL;
+    Vector *nxt2     = NULL;
+    Vector *cur3     = NULL;  
+    Vector *nxt3     = NULL;
+    Vector *ones     = NULL;  // v1 which is corresponding to lambda1 = 0
+    Vector *help_vec = NULL;
+    Vector *Lap_w    = NULL;
     int *P           = NULL;  // keeps track of changed lines in LU_decompose (while searching for max_row)
 
     A        = allocate_matrix(size);
     P        = malloc(sizeof(int) * size);
-    cur2     = malloc(sizeof(double) * size);
-    nxt2     = calloc(size, sizeof(double));
-    cur3     = malloc(sizeof(double) * size);
-    nxt3     = calloc(size, sizeof(double));
-    ones     = malloc(sizeof(double) * size);
-    help_vec = malloc(sizeof(double) * size);
-    Lap_w    = malloc(sizeof(double) * size);
+    cur2     = allocate_vector(size);
+    nxt2     = allocate_vector(size);
+    cur3     = allocate_vector(size);
+    nxt3     = allocate_vector(size);
+    ones     = allocate_vector(size);
+    help_vec = allocate_vector(size);
+    Lap_w    = allocate_vector(size);
 
     if(!A || !P || !cur2 || !nxt2 || !cur3 || !nxt3 || !ones || !help_vec || !Lap_w){
-        error_clean(A, P, cur2, nxt2, cur3, nxt3, ones, help_vec, Lap_w, size);
+        error_clean(A, P, cur2, nxt2, cur3, nxt3, ones, help_vec, Lap_w);
         return -1;
     }
 
     for(int i=0;i<size;i++)
-        ones[i] = 1.0;
+        VEC(ones,i) = 1.0;
     
-    prepare_current_vector(A,matrix,P,cur2,ones,NULL,size,0);
+    prepare_current_vector(A,matrix,P,cur2,ones,NULL,0);
 
     for(int i=0;i<ITERATIONS;i++){
-        iteration_exit_value = power_iteration(A, matrix, P, help_vec, ones, Lap_w, nxt2, cur2, NULL, size, lambda2, lambda2_prev);
+        iteration_exit_value = power_iteration(A, matrix, P, help_vec, ones, Lap_w, nxt2, cur2, NULL, lambda2, lambda2_prev);
         if(iteration_exit_value==-1){
-            error_clean(A,P,cur2,nxt2,cur3,nxt3,ones,help_vec,Lap_w,size);
+            error_clean(A,P,cur2,nxt2,cur3,nxt3,ones,help_vec,Lap_w);
             return -1;
         }
         else if(iteration_exit_value==1){
@@ -331,14 +351,14 @@ int reverse_power_iteration(double **matrix, int size, double *x, double *y){
         }
     }
 
-    double *v2 = cur2;
+    Vector *v2 = cur2;
 
-    prepare_current_vector(A,matrix,P,cur3,ones,v2,size,lambda2);
+    prepare_current_vector(A,matrix,P,cur3,ones,v2,lambda2);
 
     for(int i=0;i<ITERATIONS;i++){
-        iteration_exit_value = power_iteration(A,matrix,P,help_vec,ones,Lap_w,nxt3,cur3,v2,converged3,lambda3,lambda3_prev);
+        iteration_exit_value = power_iteration(A,matrix,P,help_vec,ones,Lap_w,nxt3,cur3,v2,lambda3,lambda3_prev);
         if(iteration_exit_value==-1){
-            error_clean(A,P,cur2,nxt2,cur3,nxt3,ones,help_vec,Lap_w,size);
+            error_clean(A,P,cur2,nxt2,cur3,nxt3,ones,help_vec,Lap_w);
             return -1;
         }
         if(iteration_exit_value==1){
@@ -346,22 +366,20 @@ int reverse_power_iteration(double **matrix, int size, double *x, double *y){
             break;
         }
     }
-    double *v3 = cur3;
+    Vector *v3 = cur3;
     //x and y coordinates - P(x[i],y[i]) is point of i-vertex
     x = v2;
     y = v3;
-    free_matrix(A,size);
+    free_matrix(A);
     free(P);
-    free(ones);
-    free(help_vec);
-    free(Lap_w);
-    free(nxt2);
-    free(nxt3);
+    free_vec(ones);
+    free_vec(help_vec);
+    free_vec(Lap_w);
+    free_vec(nxt2);
+    free_vec(nxt3);
     if(error){
-        free(cur2);
-        free(cur3);
-        v2 = NULL;
-        v3 = NULL;
+        free_vec(cur2);
+        free_vec(cur3);
         return -1;
     }
     if(converged2==0 || converged3==0)
