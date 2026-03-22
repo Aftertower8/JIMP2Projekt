@@ -218,7 +218,7 @@ int power_iteration(double **A,  double **matrix, double *P,
     }
     vector_orthagonalization(nxt,ones,size);  //delete component v1
     if(!v2)
-        vector_orthagonalization(nxt,v2,size);
+        vector_orthagonalization(nxt,v2,size);  //delete component v2 if present
     if(vector_normalize(nxt,size)==-1){
     //    error=1;
         return -1;
@@ -259,7 +259,24 @@ void error_clean(double **A, int *P, double *cur2, double *nxt2,
         free(ones);
         free(help_vec);
         free(Lap_w);
+}
+
+void prepare_current_vector(double** A, double **matrix, int *P, double *cur, double *ones, double *v2, int size, double lambda){
+    matrix_cpy(A,matrix,size);
+    
+    for(int i=0;i<size;i++){
+        P[i] = i;   //P is made to keep the track of changed lines is LU_decompose (while searching for max_row)
+        A[i][i] -= lambda + SIGMA_SHIFT;
     }
+    LU_decompose(A,P,size);
+    
+    for(int i=0;i<size;i++)
+        cur[i] = (double)rand() / RAND_MAX;
+    vector_orthagonalization(cur, ones, size);
+    if(!v2)
+        vector_orthagonalization(cur, v2, size);
+    vector_normalize(cur, size);
+}
 
 int reverse_power_iteration(double **matrix, int size, double *x, double *y){
     int iteration_exit_value = 0; //after each power_iteration exit code from said function is assigned (error detection)
@@ -268,12 +285,14 @@ int reverse_power_iteration(double **matrix, int size, double *x, double *y){
     int converged3 = 0; //flag if v3 converged
     double lambda2 = 0.0;
     double lambda2_prev = 1.0;
+    double lambda3 = 0.0;
+    double lambda3_prev = 1.0;
 
     //first initialized as null as C standard allows free(NULL) (in case of error_clean())
     double **A       = NULL;
     double *cur2     = NULL;
     double *nxt2     = NULL;
-    double *cur3     = NULL;  // after v2 iteration memory from nxt2 is assigned as it is not needed
+    double *cur3     = NULL;  
     double *nxt3     = NULL;
     double *ones     = NULL;  // v1 which is corresponding to lambda1 = 0
     double *help_vec = NULL;
@@ -284,32 +303,22 @@ int reverse_power_iteration(double **matrix, int size, double *x, double *y){
     P        = malloc(sizeof(int) * size);
     cur2     = malloc(sizeof(double) * size);
     nxt2     = calloc(size, sizeof(double));
-    nxt3     = malloc(sizeof(double) * size);
+    cur3     = malloc(sizeof(double) * size);
+    nxt3     = calloc(size, sizeof(double));
     ones     = malloc(sizeof(double) * size);
     help_vec = malloc(sizeof(double) * size);
     Lap_w    = malloc(sizeof(double) * size);
 
-    if(!A || !P || !cur2 || !nxt2 || !nxt3 || !ones || !help_vec || !Lap_w){
+    if(!A || !P || !cur2 || !nxt2 || !cur3 || !nxt3 || !ones || !help_vec || !Lap_w){
         error_clean(A, P, cur2, nxt2, cur3, nxt3, ones, help_vec, Lap_w, size);
         return -1;
     }
 
-    matrix_cpy(A,matrix,size);
-    
-    for(int i=0;i<size;i++){
-        P[i] = i;   //P is made to keep the track of changed lines is LU_decompose (while searching for max_row)
-        A[i][i] -= SIGMA_SHIFT;
-    }
-    LU_decompose(A,P,size);
-    
-    for(int i=0;i<size;i++)
-        cur2[i] = (double)rand() / RAND_MAX;
-    
     for(int i=0;i<size;i++)
         ones[i] = 1.0;
-    vector_orthagonalization(cur2, ones, size);
-    vector_normalize(cur2, size);
     
+    prepare_current_vector(A,matrix,P,cur2,ones,NULL,size,0);
+
     for(int i=0;i<ITERATIONS;i++){
         iteration_exit_value = power_iteration(A, matrix, P, help_vec, ones, Lap_w, nxt2, cur2, NULL, size, lambda2, lambda2_prev);
         if(iteration_exit_value==-1){
@@ -324,24 +333,8 @@ int reverse_power_iteration(double **matrix, int size, double *x, double *y){
 
     double *v2 = cur2;
 
-    matrix_cpy(A, matrix, size);
-    for(int i=0; i<size; i++){
-        P[i] = i;
-        A[i][i] -= lambda2 + SIGMA_SHIFT;
-    }
-    LU_decompose(A,P,size);
-    double *cur3 = nxt2;
-    
-    if(!nxt3){
-        error=1;
-    }
-    for(int i=0;i<size;i++)
-        cur3[i] = (double)rand() / RAND_MAX;
-    vector_orthagonalization(cur3, ones, size);
-    vector_orthagonalization(cur3, v2, size);
-    vector_normalize(cur3, size);
-    double lambda3 = 0.0;
-    double lambda3_prev = 1.0;
+    prepare_current_vector(A,matrix,P,cur3,ones,v2,size,lambda2);
+
     for(int i=0;i<ITERATIONS;i++){
         iteration_exit_value = power_iteration(A,matrix,P,help_vec,ones,Lap_w,nxt3,cur3,v2,converged3,lambda3,lambda3_prev);
         if(iteration_exit_value==-1){
@@ -362,10 +355,11 @@ int reverse_power_iteration(double **matrix, int size, double *x, double *y){
     free(ones);
     free(help_vec);
     free(Lap_w);
+    free(nxt2);
+    free(nxt3);
     if(error){
         free(cur2);
-        free(nxt2);
-        free(nxt3);
+        free(cur3);
         v2 = NULL;
         v3 = NULL;
         return -1;
