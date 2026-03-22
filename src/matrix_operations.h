@@ -2,6 +2,9 @@
 #define _MATRIX_OP_H_
 #include "graf.h"
 
+#define MAT(m,i,j) ((m)->data[(i) * (m)->size + (j)])
+#define VEC(v,i) ((v)->data[(i)])
+
 typedef struct{
     int size;
     double *data;
@@ -12,31 +15,20 @@ typedef struct{
     double *data;
 } Vector;
 
-static inline double getM(Matrix *m, int i, int j){
-    return m->data[i * m->size + j];
-}
+Matrix* allocate_matrix(int size);
+Vector* allocate_vector(int size);
+void    free_matrix(Matrix *M);
+void    free_vec(Vector *V);
+Matrix* create_adjacency_matrix(graf g);
+Vector* create_degree_vector(Matrix *adj_matrix);
+void adjacency_to_laplacian_matrix(Matrix *adj_matrix, Vector *deg_matrix);
+void LU_decompose(Matrix *A, int *P);
+int  LU_solve(Matrix *A, int *P, Vector *current, Vector *res, Vector *help_vec);
+double vector_norm(Vector *v);
+int    vector_normalize(Vector *v);
+double scalar_product(Vector *a, Vector *b);
+double squared_length(Vector *v);
+void   scaling(Vector *v, double scalar);      /* zmiana: int -> double */
+int    vector_orthagonalization(Vector *result, Vector *component);
 
-static inline void setM(Matrix *m, int i, int j, double val){
-    m->data[i * m->size + j] = val;
-}
-
-static inline double getV(Vector *v, int i){
-    return v->data[i];
-}
-
-static inline void setV(Vector *v, int i, int val){
-    return v->data[i] = val;
-}
-
-
-Matrix* create_adjacency_matrix(graf g);  //stworzy macierz sasiedztwa, dodac argumenty (ustalic strukture grafu) - ozn. A
-int* create_degree_vector(double** adj_matrix, int size);  //ozn. D
-double** adjacency_to_laplacian_matrix(double** adj_matrix, int* deg_matrix, int size);     //L = D - A 
-double vector_norm(double *v, int n);   //norma wektora
-int vector_normalize(double *v, int n);    //normalizacja wektora
-double scalar_product(double *a, double *b, int n);
-double squared_length(double *v, int n);
-void scaling(double *v, int size, int scalar);
-int vector_orthagonalization(double *result, double *component, int size);
-//void power_iteration(double** matrix, double* vector, int n, int iterations);
 #endif
