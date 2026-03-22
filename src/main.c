@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include "pob_dane.h"
+#include "graf.h"
 
 int main(int argc, char** argv)
 {
@@ -12,7 +13,7 @@ int main(int argc, char** argv)
       return 1;
   }
 
-  wczyt_graf(argv[1]); //wczytanie pliku z grafem
+  load_graf(argv[1]); //wczytanie pliku z grafem
   char a[50] = "triangulacja"; //Bazowo bez podania flagi argumentu bedzie triangulacja
   FILE* out = NULL;
   if (pobierz_dane(argc, argv, a, &out) != 0) {

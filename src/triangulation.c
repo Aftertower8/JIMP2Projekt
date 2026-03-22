@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "triangulacja.h"
+#include "triangulation.h"
 
 double odl (double x1, double y1, double x2, double y2) { //odleglosc punktow od siebie
   double dl = sqrt((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2));
