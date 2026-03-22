@@ -18,13 +18,6 @@ int get_max_vertex(graf g){
     return max_vert;
 }
 
-void error_alocating(double **matrix, int i){   //niepotrzebne
-    for(int j=0;j<i;j++){
-        free(matrix[j]);
-    }
-    free(matrix);
-}
-
 int matrix_cpy(Matrix *dest, Matrix *source){
     if(!dest || !source)
         return -1;
@@ -90,11 +83,6 @@ Vector* create_degree_vector(Matrix *M){
         }
     }
     return degree_vector;
-}
-
-void free_degree_vector(int *vec){  //niepotrzebne
-    free(vec);
-    vec=NULL;
 }
 
 void adjacency_to_laplacian_matrix(Matrix* adj_matrix, Vector* deg_matrix){    //no new matrix in order to save memorhelp_vec and time

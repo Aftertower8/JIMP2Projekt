@@ -83,7 +83,7 @@ int reverse_power_iterations(Matrix *matrix, pkt *punkty){
     double lambda3_prev = 1.0;
     int size = matrix->size;
 
-    //first initialized as null as C standard allows free(NULL) (in case of clean_memory())
+    //first initialized as null as C standard allows free(NULL) (in case of clear_memory())
     Matrix *A        = NULL;
     Vector *cur2     = NULL;
     Vector *nxt2     = NULL;
