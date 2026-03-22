@@ -163,7 +163,7 @@ int SpectralLayoutAlgorithm(graf g, pkt *punkty){
     free_matrix(M);
     free_vec(V);
     if(exit_code==0){
-        verbose("Spectral layout algorithm .\n");
+        verbose("Spectral layout algorithm ended successfully.\n");
         return 0;
     }
     else if(exit_code==1){
@@ -171,7 +171,7 @@ int SpectralLayoutAlgorithm(graf g, pkt *punkty){
         return 1;
     }
     else{
-        fprintf(stderr, "Error in reverse_power_iterations function.\n");
+        fprintf(stderr, "Error in spectral layout algorithm.\n");
         return -1;
     }
 }
