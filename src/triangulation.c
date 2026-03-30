@@ -31,7 +31,7 @@ void oblicz(graf* g, int a, int b, int c, int ac, int bc){ //obliczenie punktow 
   double x2f = x - h*(g->punkty[b].y - g->punkty[a].y)/d;
   double y2f = y + h*(g->punkty[b].x - g->punkty[a].x)/d;
 
-  if(sprawdz(x1f,y1f,g)){
+  if(find_pkt_pos(g, x1f,y1f)){
     g->punkty[c].x = x1f;
     g->punkty[c].y = y1f;
     g->punkty[c].op_x = x2f;
@@ -41,6 +41,58 @@ void oblicz(graf* g, int a, int b, int c, int ac, int bc){ //obliczenie punktow 
     g->punkty[c].y = y2f;
     g->punkty[c].op_x = x1f;
     g->punkty[c].op_y = y1f;
+  }
+}
+
+void triangulation(graf* g){
+  g->punkty[g->linki[0].b].x == g->linki[0].waga;
+  int k = 0;
+  for(int i = 1; i<g->l_l; i++){
+    if(find_link(g, g->linki[k].a, g->linki[i].a) != -1 )
+      for(int j = 1; j<g->l_l; j++){
+        if(find_link(g, g->linki[k].b, g->linki[j].a) != -1){
+          oblicz(g, g->linki[k]a, g->linki[i-1].b, g->linki[i].a, g->linki[i], g->linki[j]); //od indexu linku do którego znalazło ten sam punkt w obu
+          k++  
+          break;
+        }
+        else if(find_link(g, g->linki[k].b, g->linki[j].a) != -1){
+          oblicz(g, g->linki[k]a, g->linki[i-1].b, g->linki[i].a, g->linki[i], g->linki[j]);
+          k++  
+          break;
+        }
+      }
+
+    else if(find_link(g, g->linki[k].a, g->linki[i].b) != -1 )
+      for(int j = 1; j<g->l_l; j++){
+        if(find_link(g, g->linki[k].b, g->linki[j].b) != -1){
+          oblicz(g, g->linki[k].a, g->linki[i-1].b, g->linki[i].b, g->linki[i], g->linki[j]); //g->linki[i].b/a to index obecnego punktu trzeciego który znaleźliśmym do niego wsadza sie wynik
+          k++;  
+          break;
+        }
+        else if(find_link(g, g->linki[k].b, g->linki[j].b) != -1){
+          oblicz(g, g->linki[k].a, g->linki[i-1].b, g->linki[i].b, g->linki[i], g->linki[j]); 
+          k++;  
+          break;
+        }
+      }
+    }
+      if(find_pkt_pos(g, g->punkty[i].x, g->punkty[i].y) == -1)
+        //backtrack?
+}
+
+int find_pkt_pos(graf* g, double x, double y){
+  for(int i = 0; i < g->l_pkt; i++){
+    if(g->punkty[i].x == x && g->punkty[i].y == y)
+      return g->punkty[i].n;
+  return -1;
+  }
+}
+
+int find_link(graf* g, a, n){
+  for(int i = 0; i < g->l_l; i++){
+    if((g->linki[i].a == a && g->linki[i].b == n) || (g->linki[i].a == n && g->linki[i].b == a))
+      return i;
+  return -1;
   }
 }
 
